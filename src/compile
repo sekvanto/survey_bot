@@ -1,0 +1,2 @@
+#!/bin/bash
+g++ main.cpp getinfo.cpp questions.cpp -o bin --std=c++14 -I/usr/local/include -lTgBot -lboost_system -lssl -lcrypto -lpthread
