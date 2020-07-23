@@ -2,13 +2,14 @@
 #include <stdio.h>
 #include <string>
 #include <fstream>
+#include <ios>
 #include <tgbot/tgbot.h>
 #include "../include/getinfo.h"
 
 using namespace std;
 using namespace TgBot;
 
-const int questionsNumber = 25;
+const int questionsNumber = 24;
 
 int main() {
 	string token(getenv("TOKEN"));
@@ -25,7 +26,7 @@ int main() {
 
 	// start
     bot.getEvents().onCommand("start", [&bot](Message::Ptr message) {
-        bot.getApi().sendMessage(message->chat->id, "Добро пожаловать\n<a href = \"t.me/st_opr\">Ссылка на канал</a>\n<a href = \"t.me/SEKVANTO\">Связаться с организатором</a>\n/help - получение дополнительной информации\n/meme - мем", true, 0, make_shared< GenericReply >(), "HTML");
+		bot.getApi().sendMessage(message->chat->id, "Добро пожаловать\n<a href = \"t.me/st_opr\">Ссылка на канал</a>\n<a href = \"t.me/SEKVANTO\">Связаться с организатором</a>\n/help - получение дополнительной информации\n/meme - мем", true, 0, make_shared< GenericReply >(), "HTML");
     });
   
 
@@ -62,8 +63,9 @@ int main() {
 
 
 	// go
-	int iterator = 0;
-	bot.getEvents().onCommand("go", [&bot, &iterator](Message::Ptr message) {
+	int iterator=0;
+	bool meta_iterator=false;
+	bot.getEvents().onCommand("go", [&bot, &iterator, &meta_iterator](Message::Ptr message) {
 			if(message->chat->type != Chat::Type::Private)
 					bot.getApi().sendMessage(message->chat->id, "Напиши в личку для прохождения");
 
@@ -72,13 +74,18 @@ int main() {
 			else {
 				string filename = "../../qbot_extra/data/" + to_string(message->from->id);
 				ifstream check_file (filename);
+				string buf;
+				fstream iterator_write;
 				if (check_file.is_open()){
-					char temp_c = check_file.get();
-					while(check_file.good()){
-						++iterator;
-						temp_c = check_file.get();
-					}
+					getline(check_file, buf);
+					iterator = stoi(buf);
 					check_file.close();
+					//
+				}
+				else {
+					iterator_write.open(filename);
+					iterator_write << "00\n";
+					iterator_write.close();
 				}
 			
 				string Strings[questionsNumber+1];
@@ -87,33 +94,90 @@ int main() {
 				if (getq.is_open()) while(getline(getq, Strings[index])) ++index;
 				getq.close();
 				ofstream write;
-				write.open(filename.c_str(), ios::out | ios::app);
-				
-				// 0) вопрос 1.1
+				write.open(filename, ios::app);
+				cout << "Iterator now: " << iterator << endl;
 
-				InlineKeyboardMarkup::Ptr k11(new InlineKeyboardMarkup);
-				vector<InlineKeyboardButton::Ptr> r111;
-				InlineKeyboardButton::Ptr b111(new InlineKeyboardButton);
-				InlineKeyboardButton::Ptr b112(new InlineKeyboardButton);
-				b111->text = "Нет";
-				b111->callbackData = "No";
-				b112->text = "Да";
-				b112->callbackData = "Yes";
-				r111.push_back(b111);
-				r111.push_back(b112);
-				k11->inlineKeyboard.push_back(r111);
+				switch(iterator){
+
+					// вопрос 1.1
+
+					case 0: {
+
+						InlineKeyboardMarkup::Ptr k11(new InlineKeyboardMarkup);
+						vector<InlineKeyboardButton::Ptr> r111;
+						InlineKeyboardButton::Ptr b111(new InlineKeyboardButton);
+						InlineKeyboardButton::Ptr b112(new InlineKeyboardButton);
+						b111->text = "Нет";
+						b111->callbackData = "No";
+						b112->text = "Да";
+						b112->callbackData = "Yes";
+						r111.push_back(b111);
+						r111.push_back(b112);
+						k11->inlineKeyboard.push_back(r111);
 			
-				if (iterator == 0) {
-					bot.getApi().sendMessage(message->chat->id, Strings[0], false, 0, k11);
-					bot.getEvents().onCallbackQuery([&bot, &k11, &write](CallbackQuery::Ptr query) {
-							bot.getApi().answerCallbackQuery(query->id);
-							if (StringTools::startsWith(query->data, "No")) {
-								//write << "Нет. ";
+						int temp=0;
+						bot.getApi().sendMessage(message->chat->id, Strings[0], false, 0, k11);
+						bot.getEvents().onCallbackQuery([&bot,&temp,&iterator,&meta_iterator](CallbackQuery::Ptr query) {
+							if (StringTools::startsWith(query->data.c_str(), "Yes")) {
+								temp=1;
+								meta_iterator=true; // ждем ответа через onAnyMessage
 							}
-					});
-				}
+							else { 
+								++iterator;
+								// нужно еще обн. значение в файле
+							}
+							bot.getApi().answerCallbackQuery(query->id);
+						});
+						cout << temp << endl;
+						if(temp==0) write << "1.1. Нет. ";
+						else {
+							write << "1.1. Да. ";
+							bot.getApi().sendMessage(message->chat->id, "Какие именно проблемы? (Опишите в сообщении)");
+						}
+						break;
+						}
 
+					// вопрос 1.2
+
+					//case 1:
+					
+					// другое значение
+
+					default:
+						bot.getApi().sendMessage(message->chat->id, "Вы уже прошли опрос, либо же произошла ошибка. Обратитесь к @sekvanto, если что-то пошло не так");
+
+				}
+				bot.getApi().sendMessage(message->chat->id, "Нажмите на одну из кнопок, если вопрос их содержит. Если вы хотите добавить что-то после ответа, напишите это сейчас. (ответьте '-', если нет). Когда напишите необходимое, нажмите /go, чтобы продолжить");
 				write.close();
+			}
+	});
+
+
+	// any message
+	bot.getEvents().onAnyMessage([&bot, &iterator, &meta_iterator](Message::Ptr message) {
+			if (message->chat->type == Chat::Type::Private) printf("User wrote %s\n", message->text.c_str());
+			if (StringTools::startsWith(message->text, "/")) return;
+			if(message->chat->type == Chat::Type::Private) {
+
+				string filename = "../../qbot_extra/data/" + to_string(message->from->id);
+				ifstream check_file (filename);
+				string buf;
+				fstream iterator_write;
+				if (!check_file.is_open()){
+					iterator_write.open(filename);
+					iterator_write << "00\n";
+					iterator_write.close();
+				}
+				ofstream write;
+				write.open(filename, ios::app);
+				write << message->text << endl;
+				write.close();
+				bot.getApi().sendMessage(message->chat->id, "В файл было записано: " + message->text);
+				bot.getApi().sendMessage(1035974933, "User sent " + message->text + ". Their id: " + to_string(message->chat->id));
+				if (meta_iterator) {
+				//	++iterator;
+					meta_iterator=false;
+				}
 			}
 	});
 	
