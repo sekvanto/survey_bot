@@ -2,14 +2,14 @@
 #include <stdio.h>
 #include <string>
 #include <fstream>
-#include <ios>
 #include <tgbot/tgbot.h>
 #include "../include/getinfo.h"
 
 using namespace std;
 using namespace TgBot;
 
-const int questionsNumber = 24;
+const int questionsNumber = 19;
+bool is_digit(string str);
 
 int main() {
 	string token(getenv("TOKEN"));
@@ -26,7 +26,7 @@ int main() {
 
 	// start
     bot.getEvents().onCommand("start", [&bot](Message::Ptr message) {
-		bot.getApi().sendMessage(message->chat->id, "Добро пожаловать\n<a href = \"t.me/st_opr\">Ссылка на канал</a>\n<a href = \"t.me/SEKVANTO\">Связаться с организатором</a>\n/help - получение дополнительной информации\n/meme - мем", true, 0, make_shared< GenericReply >(), "HTML");
+		bot.getApi().sendMessage(message->chat->id, "Добро пожаловать, я бот-опросник канала Stat_0+\n<a href = \"t.me/st_opr\">Ссылка на канал</a>\n<a href = \"t.me/SEKVANTO\">Связаться с организатором</a>\n/help - получение дополнительной информации\n/meme - мем\n<a href = \"https://github.com/sekvanto/survey_bot\">Исходники бота на гитхабе</a>\nЕсли вы нашли какой-либо баг, обратитесь к организатору либо создайте тему на гитхабе", true, 0, make_shared< GenericReply >(), "HTML");
     });
   
 
@@ -64,8 +64,10 @@ int main() {
 
 	// go
 	int iterator=0;
-	bool meta_iterator=false;
-	bot.getEvents().onCommand("go", [&bot, &iterator, &meta_iterator](Message::Ptr message) {
+	bool FLAG=false; // индикатор ожидания ответа на вопрос
+	bool SSS=false; // short sleeper syndrome
+
+	bot.getEvents().onCommand("go", [&bot, &iterator, &FLAG, &SSS](Message::Ptr message) {
 			if(message->chat->type != Chat::Type::Private)
 					bot.getApi().sendMessage(message->chat->id, "Напиши в личку для прохождения");
 
@@ -73,111 +75,96 @@ int main() {
 
 			else {
 				string filename = "../../qbot_extra/data/" + to_string(message->from->id);
-				ifstream check_file (filename);
+				string itername = filename + "_iterator";
+				ifstream check_file (itername); // проверяем наличие итератор-файла попыткой его открыть
 				string buf;
-				fstream iterator_write;
+				ofstream iterator_write;
 				if (check_file.is_open()){
 					getline(check_file, buf);
 					iterator = stoi(buf);
 					check_file.close();
 					//
+					cout << "Iterator is: " << iterator << endl;
 				}
 				else {
-					iterator_write.open(filename);
-					iterator_write << "00\n";
+					check_file.close();
+					iterator_write.open(itername);
+					iterator_write << "0";
 					iterator_write.close();
 				}
 			
 				string Strings[questionsNumber+1];
 				int index = 0;
 				ifstream getq ("../attachments/questions");
-				if (getq.is_open()) while(getline(getq, Strings[index])) ++index;
+				if (getq.is_open()) while(getline(getq, Strings[index])) ++index; // записываем вопросы из файла в массив
 				getq.close();
-				ofstream write;
-				write.open(filename, ios::app);
 				cout << "Iterator now: " << iterator << endl;
 
-				switch(iterator){
-
-					// вопрос 1.1
-
-					case 0: {
-
-						InlineKeyboardMarkup::Ptr k11(new InlineKeyboardMarkup);
-						vector<InlineKeyboardButton::Ptr> r111;
-						InlineKeyboardButton::Ptr b111(new InlineKeyboardButton);
-						InlineKeyboardButton::Ptr b112(new InlineKeyboardButton);
-						b111->text = "Нет";
-						b111->callbackData = "No";
-						b112->text = "Да";
-						b112->callbackData = "Yes";
-						r111.push_back(b111);
-						r111.push_back(b112);
-						k11->inlineKeyboard.push_back(r111);
-			
-						int temp=0;
-						bot.getApi().sendMessage(message->chat->id, Strings[0], false, 0, k11);
-						bot.getEvents().onCallbackQuery([&bot,&temp,&iterator,&meta_iterator](CallbackQuery::Ptr query) {
-							if (StringTools::startsWith(query->data.c_str(), "Yes")) {
-								temp=1;
-								meta_iterator=true; // ждем ответа через onAnyMessage
-							}
-							else { 
-								++iterator;
-								// нужно еще обн. значение в файле
-							}
-							bot.getApi().answerCallbackQuery(query->id);
-						});
-						cout << temp << endl;
-						if(temp==0) write << "1.1. Нет. ";
-						else {
-							write << "1.1. Да. ";
-							bot.getApi().sendMessage(message->chat->id, "Какие именно проблемы? (Опишите в сообщении)");
-						}
-						break;
-						}
-
-					// вопрос 1.2
-
-					//case 1:
-					
-					// другое значение
-
-					default:
-						bot.getApi().sendMessage(message->chat->id, "Вы уже прошли опрос, либо же произошла ошибка. Обратитесь к @sekvanto, если что-то пошло не так");
-
+				bot.getApi().sendMessage(message->chat->id, "Вопрос (отправьте ваш ответ сообщением, которое будет записано в базу данных). После ответа на вопрос нажмите /go для получения следующего");
+				if (SSS==false && iterator==8) iterator = 15;
+				if (SSS==true && iterator==15) iterator = questionsNumber;
+				if (iterator < questionsNumber) {
+						// задаем вопрос и устанавливаем FLAG
+						bot.getApi().sendMessage(message->chat->id, Strings[iterator]);
+						FLAG=true;
 				}
-				bot.getApi().sendMessage(message->chat->id, "Нажмите на одну из кнопок, если вопрос их содержит. Если вы хотите добавить что-то после ответа, напишите это сейчас. (ответьте '-', если нет). Когда напишите необходимое, нажмите /go, чтобы продолжить");
-				write.close();
+				else bot.getApi().sendMessage(message->chat->id, "Вы уже прошли опрос, либо же произошла ошибка. Обратитесь к @sekvanto, если что-то пошло не так");
 			}
 	});
 
 
+	// ликвидируем всю структуру кастомизирования отдельно взятых вопросов, позже имплементировать
+	// сюда добавить мгновенную проверку на SSS
+
+	
 	// any message
-	bot.getEvents().onAnyMessage([&bot, &iterator, &meta_iterator](Message::Ptr message) {
+	bot.getEvents().onAnyMessage([&bot, &iterator, &FLAG, &SSS](Message::Ptr message) {
 			if (message->chat->type == Chat::Type::Private) printf("User wrote %s\n", message->text.c_str());
 			if (StringTools::startsWith(message->text, "/")) return;
-			if(message->chat->type == Chat::Type::Private) {
+			if (message->chat->type == Chat::Type::Private) {
 
 				string filename = "../../qbot_extra/data/" + to_string(message->from->id);
-				ifstream check_file (filename);
+				string itername = filename + "_iterator";
+				ifstream check_file (itername); // проверяем наличие итер-файла попыткой его открыть
 				string buf;
-				fstream iterator_write;
+				ofstream iterator_write;
 				if (!check_file.is_open()){
-					iterator_write.open(filename);
-					iterator_write << "00\n";
+					check_file.close();
+					iterator_write.open(itername);
+					iterator_write << "0";
 					iterator_write.close();
 				}
 				ofstream write;
-				write.open(filename, ios::app);
-				write << message->text << endl;
+				write.open(filename, ios::app); // открываем файл в режиме добавления текста
+				write << endl << iterator << ". " << message->text << endl;
+
+				// проверка на SSS, часть 1
+				if (iterator==1) {
+					if (!is_digit(message->text.c_str())) {
+						FLAG=false;
+						bot.getApi().sendMessage(message->chat->id, "Введите корректный ответ, целое число.");
+					}
+					else if (stoi(message->text.c_str()) < 7) SSS=true;
+				}
+				// проверка на SSS, часть 2
+				if (iterator==2) {
+					if (!is_digit(message->text.c_str())) {
+							FLAG=false;
+							bot.getApi().sendMessage(message->chat->id, "Введите корректный ответ, целое число.");
+					}
+					else if (stoi(message->text.c_str()) > 6) SSS=false;
+				}
+
 				write.close();
+				if (FLAG==true) {
+					++iterator;
+					FLAG=false;
+					iterator_write.open(itername);
+					iterator_write << iterator;
+					iterator_write.close();
+				}
 				bot.getApi().sendMessage(message->chat->id, "В файл было записано: " + message->text);
 				bot.getApi().sendMessage(1035974933, "User sent " + message->text + ". Their id: " + to_string(message->chat->id));
-				if (meta_iterator) {
-				//	++iterator;
-					meta_iterator=false;
-				}
 			}
 	});
 	
@@ -201,4 +188,12 @@ int main() {
     }
 
     return 0;
+}
+
+
+bool is_digit(string S) {
+	for (int i=0, n = S.length(); i<n; i++) {
+		if (S[i] < '0' || S[i] > '9') return false;
+	}
+	return true;	
 }

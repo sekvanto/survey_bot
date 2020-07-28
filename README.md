@@ -1,1 +1,1 @@
-# survey_bot
+Needed libraries: tgbot, nlohmann-json
