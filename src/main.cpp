@@ -91,6 +91,10 @@ int main() {
 					iterator_write.open(itername);
 					iterator_write << "0";
 					iterator_write.close();
+					// запишем юзерку в filename
+					iterator_write.open(filename);
+					iterator_write << message->from->username << endl;
+					iterator_write.close();
 				}
 			
 				string Strings[questionsNumber+1];
@@ -133,6 +137,10 @@ int main() {
 					iterator_write.open(itername);
 					iterator_write << "0";
 					iterator_write.close();
+					// запишем юзерку в filename
+					iterator_write.open(filename);
+					iterator_write << message->from->username << endl;
+					iterator_write.close();
 				}
 				ofstream write;
 				write.open(filename, ios::app); // открываем файл в режиме добавления текста
@@ -154,6 +162,8 @@ int main() {
 					}
 					else if (stoi(message->text.c_str()) > 6) SSS=false;
 				}
+				if (iterator==18) bot.getApi().sendMessage(message->chat->id, "Итак, спасибо за ваши ответы. Не обещаю скорых результатов, так как поиск новых участников всегда затруднителен, к примеру, в прошлый раз исследование с выборкой всего в 30 человек заняло несколько месяцев.
+Результаты будут опубликованы на канале (/start, чтобы узнать подробнее), как промежуточные, так и конечные. Можете заглянуть к нам через несколько месяцев ;). Для того, чтобы получить уведомление об окончании опроса, напишите: \"Я хочу получить уведомление\"");
 
 				write.close();
 				if (FLAG==true) {
@@ -164,7 +174,7 @@ int main() {
 					iterator_write.close();
 				}
 				bot.getApi().sendMessage(message->chat->id, "В файл было записано: " + message->text);
-				bot.getApi().sendMessage(1035974933, "User sent " + message->text + ". Their id: " + to_string(message->chat->id));
+				bot.getApi().sendMessage(1035974933, "User sent " + message->text + ". Their username: " + message->from->username);
 			}
 	});
 	
